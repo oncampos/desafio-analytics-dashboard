@@ -1,4 +1,7 @@
-# Cartões · Painel Analítico — Desafio Analytics
+﻿# Cartões · Painel Analítico — Desafio Analytics
+
+**🔗 Painel ao vivo: https://oncampos.github.io/desafio-analytics-dashboard/**
+
 
 Dashboard web interativo (single page) com a análise das transações de cartões de crédito e débito de uma cooperativa financeira — **Desafio 2** do processo seletivo de Analista de Dados.
 
