@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cartões · Painel Analítico — Desafio Analytics</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<style>
+  :root{
+    --verde-900:#0E7A4E; --verde-500:#2FA26E; --ambar:#C98A00; --cinza-verde:#5B6B63;
+    --fundo:#F4F6F5; --card:#FFFFFF; --texto:#243330; --texto-suave:#6B7B74;
+    --borda:#E3E9E6; --sombra:0 1px 3px rgba(20,40,32,.08), 0 4px 14px rgba(20,40,32,.06);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--fundo); color:var(--texto);
+    font-family:"Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size:14px; line-height:1.45;
+  }
+  header.topo{
+    background:linear-gradient(135deg,#0B5E3D 0%, #0E7A4E 60%, #159059 100%);
+    color:#fff; padding:18px 24px 14px;
+  }
+  header.topo h1{font-size:20px; font-weight:600; letter-spacing:.2px;}
+  header.topo p{font-size:12.5px; opacity:.85; margin-top:2px;}
+
+  /* ---------- barra de filtros ---------- */
+  .filtros{
+    position:sticky; top:0; z-index:50;
+    background:var(--card); border-bottom:1px solid var(--borda);
+    box-shadow:0 2px 8px rgba(20,40,32,.07);
+    padding:10px 24px; display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end;
+  }
+  .filtro{display:flex; flex-direction:column; gap:3px;}
+  .filtro label{font-size:11px; font-weight:600; color:var(--texto-suave); text-transform:uppercase; letter-spacing:.4px;}
+  .filtro select{
+    border:1px solid var(--borda); border-radius:8px; background:#fff; color:var(--texto);
+    padding:6px 8px; font-size:13px; min-width:130px; max-width:230px; cursor:pointer; outline-color:var(--verde-500);
+  }
+  .toggle-grupo{display:flex; gap:6px;}
+  .toggle{
+    border:1px solid var(--borda); background:#fff; color:var(--texto-suave);
+    border-radius:8px; padding:6px 14px; font-size:13px; font-weight:600; cursor:pointer; transition:all .15s;
+  }
+  .toggle.ativo{background:var(--verde-900); border-color:var(--verde-900); color:#fff;}
+  .toggle:hover:not(.ativo){border-color:var(--verde-500); color:var(--verde-900);}
+  .btn-limpar{
+    margin-left:auto; border:1px solid var(--borda); background:#fff; color:var(--cinza-verde);
+    border-radius:8px; padding:7px 14px; font-size:13px; font-weight:600; cursor:pointer; transition:all .15s;
+  }
+  .btn-limpar:hover{border-color:var(--ambar); color:var(--ambar);}
+  .periodo-grupo{display:flex; gap:6px; align-items:center;}
+  .periodo-grupo span{color:var(--texto-suave); font-size:12px;}
+  .periodo-grupo select{min-width:96px;}
+
+  main{max-width:1440px; margin:0 auto; padding:20px 24px 8px;}
+
+  /* ---------- KPIs ---------- */
+  .kpis{display:grid; grid-template-columns:repeat(auto-fit, minmax(190px,1fr)); gap:14px; margin-bottom:18px;}
+  .kpi{
+    background:var(--card); border-radius:12px; box-shadow:var(--sombra); padding:14px 16px;
+    border-top:3px solid var(--verde-900); position:relative;
+  }
+  .kpi .rotulo{font-size:11.5px; font-weight:600; color:var(--texto-suave); text-transform:uppercase; letter-spacing:.4px; display:flex; align-items:center; gap:5px;}
+  .kpi .valor{font-size:23px; font-weight:700; color:var(--verde-900); margin-top:4px; white-space:nowrap;}
+  .kpi .detalhe{font-size:11.5px; color:var(--texto-suave); margin-top:2px;}
+  .info{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:15px; height:15px; border-radius:50%; background:var(--borda); color:var(--cinza-verde);
+    font-size:10px; font-weight:700; cursor:help; position:relative; font-style:normal;
+  }
+  .info::after{
+    content:attr(data-tip); position:absolute; left:50%; top:130%; transform:translateX(-50%);
+    background:#243330; color:#fff; font-size:11.5px; font-weight:400; line-height:1.4;
+    padding:8px 10px; border-radius:8px; width:250px; text-align:left; text-transform:none; letter-spacing:0;
+    opacity:0; pointer-events:none; transition:opacity .15s; z-index:90; box-shadow:var(--sombra);
+  }
+  .info:hover::after{opacity:1;}
+
+  /* ---------- grid de gráficos ---------- */
+  .grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(340px,1fr)); gap:16px;}
+  .card{
+    background:var(--card); border-radius:12px; box-shadow:var(--sombra);
+    padding:14px 16px 8px; display:flex; flex-direction:column; min-width:0;
+  }
+  .card h2{font-size:14.5px; font-weight:600; color:var(--texto);}
+  .card .sub{font-size:11.5px; color:var(--texto-suave); margin-top:1px;}
+  .card .chart{width:100%; height:320px; margin-top:4px;}
+  .card .nota{font-size:11px; color:var(--texto-suave); border-top:1px dashed var(--borda); padding:6px 0 4px; margin-top:2px;}
+  .full{grid-column:1 / -1;}
+  @media (min-width:980px){ .span2{grid-column:span 2;} }
+  .card.full .chart{height:360px;}
+
+  footer{
+    max-width:1440px; margin:6px auto 0; padding:14px 24px 26px;
+    font-size:12px; color:var(--texto-suave); border-top:1px solid var(--borda); text-align:center;
+  }
+  footer .qualidade{margin-top:6px; font-size:11.5px;}
+</style>
+</head>
+<body>
+
+<header class="topo">
+  <h1>Cartões · Painel Analítico — Desafio Analytics</h1>
+  <p>Transações de cartões de crédito e débito da cooperativa · 31/12/2018 a 20/02/2020 (fev/2020 parcial)</p>
+</header>
+
+<!-- ==================== BARRA DE FILTROS ==================== -->
+<nav class="filtros" aria-label="Filtros do painel">
+  <div class="filtro">
+    <label for="f-coop">Cooperativa</label>
+    <select id="f-coop"></select>
+  </div>
+  <div class="filtro">
+    <label for="f-agencia">Agência</label>
+    <select id="f-agencia"></select>
+  </div>
+  <div class="filtro">
+    <label>Modalidade</label>
+    <div class="toggle-grupo">
+      <button type="button" class="toggle" id="t-credito">CRÉDITO</button>
+      <button type="button" class="toggle" id="t-debito">DÉBITO</button>
+    </div>
+  </div>
+  <div class="filtro">
+    <label for="f-faixa">Faixa de renda</label>
+    <select id="f-faixa"></select>
+  </div>
+  <div class="filtro">
+    <label>Período</label>
+    <div class="periodo-grupo">
+      <select id="f-de"></select><span>até</span><select id="f-ate"></select>
+    </div>
+  </div>
+  <button type="button" class="btn-limpar" id="btn-limpar">✕ Limpar filtros</button>
+</nav>
+
+<main>
+  <!-- ==================== KPI CARDS ==================== -->
+  <section class="kpis" aria-label="Indicadores">
+    <div class="kpi"><div class="rotulo">Volume total</div><div class="valor" id="kpi-volume">—</div><div class="detalhe" id="kpi-volume-det"></div></div>
+    <div class="kpi"><div class="rotulo">Transações</div><div class="valor" id="kpi-tx">—</div><div class="detalhe" id="kpi-tx-det"></div></div>
+    <div class="kpi"><div class="rotulo">Ticket médio</div><div class="valor" id="kpi-ticket">—</div><div class="detalhe">volume ÷ transações</div></div>
+    <div class="kpi">
+      <div class="rotulo">Associados ativos
+        <span class="info" data-tip="Pico mensal de associados com transação no intervalo filtrado (contagem distinta por mês). Associado ativo NÃO é aditivo entre filtros: o mesmo associado pode transacionar em mais de uma cooperativa e em vários meses. Considera apenas os filtros de cooperativa e período.">i</span>
+      </div>
+      <div class="valor" id="kpi-ativos">—</div><div class="detalhe" id="kpi-ativos-det"></div>
+    </div>
+    <div class="kpi">
+      <div class="rotulo">Cartões ativos
+        <span class="info" data-tip="Pico mensal de cartões com transação no intervalo filtrado. Disponível apenas na visão geral (sem filtro de cooperativa), pois a base agregada de cartões não é aberta por cooperativa.">i</span>
+      </div>
+      <div class="valor" id="kpi-cartoes">—</div><div class="detalhe" id="kpi-cartoes-det"></div>
+    </div>
+  </section>
+
+  <!-- ==================== GRÁFICOS ==================== -->
+  <section class="grid">
+    <div class="card full">
+      <h2>Evolução mensal — volume por modalidade e nº de transações</h2>
+      <div class="sub">Barras empilhadas: volume (R$) · Linha: transações</div>
+      <div class="chart" id="ch-evolucao"></div>
+      <div class="nota">* fev/2020 é mês parcial (transações até 20/02/2020) — leia a tendência com cautela.</div>
+    </div>
+
+    <div class="card">
+      <h2>Volume por cooperativa</h2>
+      <div class="sub">Clique numa barra para filtrar (clique de novo para limpar)</div>
+      <div class="chart" id="ch-coop"></div>
+    </div>
+
+    <div class="card">
+      <h2>Top 10 agências por volume</h2>
+      <div class="sub">Volume transacionado (R$) no recorte atual</div>
+      <div class="chart" id="ch-agencias"></div>
+    </div>
+
+    <div class="card">
+      <h2>Volume por faixa de renda</h2>
+      <div class="sub">Participação % do volume no recorte atual</div>
+      <div class="chart" id="ch-faixa"></div>
+      <div class="nota">Qualidade de dados: os códigos 4 e 5 chegam da origem com a mesma descrição "ALTA".</div>
+    </div>
+
+    <div class="card">
+      <h2>Top 10 cidades por volume</h2>
+      <div class="sub">Cidade do estabelecimento</div>
+      <div class="chart" id="ch-cidades"></div>
+      <div class="nota">Visão agregada por cidade: respeita cooperativa, modalidade e período (agência e faixa não se aplicam a este corte).</div>
+    </div>
+
+    <div class="card span2">
+      <h2>Mapa de calor — dia da semana × hora (volume)</h2>
+      <div class="sub">Concentração do volume transacionado por horário</div>
+      <div class="chart" id="ch-heat"></div>
+      <div class="nota">Visão agregada do período completo: respeita cooperativa e modalidade (agência, faixa e período não se aplicam a este corte).</div>
+    </div>
+
+    <div class="card">
+      <h2>Novos associados por mês</h2>
+      <div class="sub">Adesões por mês de associação — considera apenas o filtro de período</div>
+      <div class="chart" id="ch-novos"></div>
+      <div class="nota">A captação praticamente parou desde meados de 2019 (ago/19: 1 adesão; out/19: 2). Inclui nov/2018, anterior ao período transacional.</div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  Dados fictícios do desafio · Período 31/12/2018 a 20/02/2020 (fev/2020 parcial) · Fonte: db_cartoes.transacoes
+  <div class="qualidade">Notas de qualidade: 2 transações com modalidade não informada (R$ 18,73) · faixas de renda 4 e 5 com a mesma descrição "ALTA" · encoding corrigido nos cadastros de associados/agências.</div>
+</footer>
+
+<script src="data.js"></script>
+<script>
+"use strict";
+/* ============================================================
+   Cartões · Painel Analítico — Desafio Analytics
+   HTML + JS puro + Apache ECharts 5 (CDN). Sem outras dependências.
+   ============================================================ */
+
+/* ---------- constantes ---------- */
+var COR = { credito:"#0E7A4E", debito:"#2FA26E", ambar:"#C98A00", cinza:"#5B6B63" };
+var PALETA = ["#0E7A4E", "#2FA26E", "#C98A00", "#5B6B63", "#8FBFA8"];
+var MESES = CUBE.meta.meses.slice();
+var DIAS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]; // dow 0 = segunda
+var MES_ABREV = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+var MES_PARCIAL = "2020-02";
+
+/* ---------- estado único dos filtros ---------- */
+var state = {
+  coop: "",                     // "" = todas
+  agencia: "",
+  modalidade: "",               // "" = todas | "CREDITO" | "DEBITO"
+  faixa: "",
+  de: MESES[0],
+  ate: MESES[MESES.length - 1]
+};
+
+/* ---------- formatação pt-BR ---------- */
+var _fmtBRL = new Intl.NumberFormat("pt-BR", { style:"currency", currency:"BRL" });
+var _fmtBRL0 = new Intl.NumberFormat("pt-BR", { style:"currency", currency:"BRL", maximumFractionDigits:0 });
+var _fmtInt = new Intl.NumberFormat("pt-BR");
+function fmtBRL(v){ return _fmtBRL.format(v); }
+function fmtBRL0(v){ return _fmtBRL0.format(v); }
+function fmtInt(n){ return _fmtInt.format(n); }
+function fmtCompactBRL(v){
+  if (v >= 1e6) return "R$ " + (v/1e6).toLocaleString("pt-BR",{maximumFractionDigits:1}) + " mi";
+  if (v >= 1e3) return "R$ " + (v/1e3).toLocaleString("pt-BR",{maximumFractionDigits:0}) + " mil";
+  return "R$ " + v.toLocaleString("pt-BR",{maximumFractionDigits:0});
+}
+function fmtMes(m){ // "2019-01" -> "jan/19"; mês parcial ganha "*"
+  var p = m.split("-");
+  var rot = MES_ABREV[parseInt(p[1],10)-1] + "/" + p[0].slice(2);
+  return m === MES_PARCIAL ? rot + "*" : rot;
+}
+
+/* ============================================================
+   FUNÇÕES PURAS DE AGREGAÇÃO (soma v/q do cubo filtrado)
+   ============================================================ */
+function filtraPrincipal(f, ignorarCoop){
+  return CUBE.principal.filter(function(r){
+    return (ignorarCoop || !f.coop || r.coop === f.coop) &&
+           (!f.agencia || r.agencia === f.agencia) &&
+           (!f.modalidade || r.modalidade === f.modalidade) &&
+           (!f.faixa || r.faixa === f.faixa) &&
+           r.mes >= f.de && r.mes <= f.ate;
+  });
+}
+function filtraCidade(f){
+  return CUBE.cidade.filter(function(r){
+    return (!f.coop || r.coop === f.coop) &&
+           (!f.modalidade || r.modalidade === f.modalidade) &&
+           r.mes >= f.de && r.mes <= f.ate;
+  });
+}
+function filtraHoraDow(f){
+  return CUBE.hora_dow.filter(function(r){
+    return (!f.coop || r.coop === f.coop) &&
+           (!f.modalidade || r.modalidade === f.modalidade);
+  });
+}
+function somaVQ(rows){
+  var v = 0, q = 0;
+  for (var i = 0; i < rows.length; i++){ v += rows[i].v; q += rows[i].q; }
+  return { v:v, q:q };
+}
+function agrupaSoma(rows, chaveFn){
+  var m = new Map();
+  for (var i = 0; i < rows.length; i++){
+    var r = rows[i], k = chaveFn(r);
+    var o = m.get(k);
+    if (!o){ o = { v:0, q:0 }; m.set(k, o); }
+    o.v += r.v; o.q += r.q;
+  }
+  return m;
+}
+function topN(mapa, n){
+  return Array.from(mapa.entries())
+    .sort(function(a,b){ return b[1].v - a[1].v; })
+    .slice(0, n);
+}
+/* pico mensal de associados/cartões ativos no intervalo (métrica não aditiva) */
+function picoAtivos(f){
+  var rows, pico = null;
+  if (f.coop){
+    rows = CUBE.ativos_mes_coop.filter(function(r){ return r.coop === f.coop && r.mes >= f.de && r.mes <= f.ate; });
+  } else {
+    rows = CUBE.ativos_mes.filter(function(r){ return r.mes >= f.de && r.mes <= f.ate; });
+  }
+  for (var i = 0; i < rows.length; i++){
+    if (!pico || rows[i].ativos > pico.ativos) pico = rows[i];
+  }
+  return pico; // {mes, ativos[, cartoes]} ou null
+}
+function picoCartoes(f){
+  if (f.coop) return null; // cubo de cartões não é aberto por cooperativa
+  var pico = null;
+  CUBE.ativos_mes.forEach(function(r){
+    if (r.mes >= f.de && r.mes <= f.ate && (!pico || r.cartoes > pico.cartoes)) pico = r;
+  });
+  return pico;
+}
+
+/* ============================================================
+   UI — filtros
+   ============================================================ */
+var el = function(id){ return document.getElementById(id); };
+var selCoop = el("f-coop"), selAg = el("f-agencia"), selFaixa = el("f-faixa"),
+    selDe = el("f-de"), selAte = el("f-ate"),
+    btnCred = el("t-credito"), btnDeb = el("t-debito");
+
+function opt(valor, rotulo){
+  var o = document.createElement("option");
+  o.value = valor; o.textContent = rotulo;
+  return o;
+}
+function montaFiltros(){
+  selCoop.appendChild(opt("", "Todas as cooperativas"));
+  CUBE.meta.coops.forEach(function(c){ selCoop.appendChild(opt(c, c)); });
+
+  selFaixa.appendChild(opt("", "Todas as faixas"));
+  CUBE.meta.faixas.forEach(function(fx){ selFaixa.appendChild(opt(fx, fx)); });
+
+  MESES.forEach(function(m){
+    selDe.appendChild(opt(m, fmtMes(m)));
+    selAte.appendChild(opt(m, fmtMes(m)));
+  });
+  montaAgencias();
+  sincronizaUI();
+}
+function montaAgencias(){
+  selAg.innerHTML = "";
+  selAg.appendChild(opt("", "Todas as agências"));
+  var cod = state.coop ? state.coop.split(" ")[0] : null; // "331 - ..." -> "331"
+  CUBE.meta.agencias.forEach(function(a){
+    if (!cod || a.split("-")[0] === cod) selAg.appendChild(opt(a, a));
+  });
+}
+function sincronizaUI(){
+  selCoop.value = state.coop;
+  selAg.value = state.agencia;
+  selFaixa.value = state.faixa;
+  selDe.value = state.de;
+  selAte.value = state.ate;
+  btnCred.classList.toggle("ativo", state.modalidade === "CREDITO");
+  btnDeb.classList.toggle("ativo", state.modalidade === "DEBITO");
+}
+selCoop.addEventListener("change", function(){
+  state.coop = this.value;
+  state.agencia = ""; // agência depende da cooperativa
+  montaAgencias();
+  renderiza();
+});
+selAg.addEventListener("change", function(){ state.agencia = this.value; renderiza(); });
+selFaixa.addEventListener("change", function(){ state.faixa = this.value; renderiza(); });
+selDe.addEventListener("change", function(){
+  state.de = this.value;
+  if (state.de > state.ate){ state.ate = state.de; }
+  renderiza();
+});
+selAte.addEventListener("change", function(){
+  state.ate = this.value;
+  if (state.ate < state.de){ state.de = state.ate; }
+  renderiza();
+});
+btnCred.addEventListener("click", function(){
+  state.modalidade = (state.modalidade === "CREDITO") ? "" : "CREDITO";
+  renderiza();
+});
+btnDeb.addEventListener("click", function(){
+  state.modalidade = (state.modalidade === "DEBITO") ? "" : "DEBITO";
+  renderiza();
+});
+el("btn-limpar").addEventListener("click", function(){
+  state.coop = ""; state.agencia = ""; state.modalidade = ""; state.faixa = "";
+  state.de = MESES[0]; state.ate = MESES[MESES.length - 1];
+  montaAgencias();
+  renderiza();
+});
+
+/* ============================================================
+   Gráficos (ECharts)
+   ============================================================ */
+var charts = {};
+function initChart(id){
+  var c = echarts.init(el(id), null, { renderer:"canvas" });
+  charts[id] = c;
+  return c;
+}
+var TOOLTIP_BASE = {
+  backgroundColor:"#243330", borderWidth:0, padding:[8,12],
+  textStyle:{ color:"#fff", fontSize:12 }
+};
+var EIXO_TXT = { color:"#6B7B74", fontSize:11 };
+var SEM_DADOS = {
+  title:{ text:"Sem dados para os filtros selecionados", left:"center", top:"middle",
+          textStyle:{ color:"#6B7B74", fontSize:13, fontWeight:"normal" } },
+  xAxis:{ show:false }, yAxis:{ show:false }, series:[]
+};
+
+/* ---------- 1) Evolução mensal ---------- */
+function optEvolucao(){
+  var rows = filtraPrincipal(state, false);
+  if (!rows.length) return SEM_DADOS;
+  var meses = MESES.filter(function(m){ return m >= state.de && m <= state.ate; });
+  var porMesMod = agrupaSoma(rows, function(r){ return r.mes + "|" + r.modalidade; });
+  var porMes = agrupaSoma(rows, function(r){ return r.mes; });
+  function serie(mod){
+    return meses.map(function(m){
+      var o = porMesMod.get(m + "|" + mod);
+      return o ? Math.round(o.v * 100) / 100 : 0;
+    });
+  }
+  var txLinha = meses.map(function(m){ var o = porMes.get(m); return o ? o.q : 0; });
+  var temNI = rows.some(function(r){ return r.modalidade === "NÃO INFORMADO"; });
+
+  var series = [
+    { name:"Crédito", type:"bar", stack:"vol", data:serie("CREDITO"), itemStyle:{ color:COR.credito }, barMaxWidth:34 },
+    { name:"Débito",  type:"bar", stack:"vol", data:serie("DEBITO"),  itemStyle:{ color:COR.debito },  barMaxWidth:34 }
+  ];
+  if (temNI) series.push({ name:"Não informado", type:"bar", stack:"vol", data:serie("NÃO INFORMADO"), itemStyle:{ color:COR.cinza }, barMaxWidth:34 });
+  series.push({
+    name:"Transações", type:"line", yAxisIndex:1, data:txLinha, smooth:true, symbol:"circle", symbolSize:7,
+    itemStyle:{ color:COR.ambar }, lineStyle:{ width:2.5, color:COR.ambar }, z:5
+  });
+
+  return {
+    color:[COR.credito, COR.debito, COR.cinza, COR.ambar],
+    legend:{ top:0, textStyle:{ color:"#243330", fontSize:12 } },
+    grid:{ left:64, right:60, top:38, bottom:30 },
+    tooltip: Object.assign({}, TOOLTIP_BASE, {
+      trigger:"axis", axisPointer:{ type:"shadow" },
+      formatter:function(ps){
+        var s = "<b>" + ps[0].axisValue + (ps[0].axisValue.indexOf("*") > -1 ? " (mês parcial)" : "") + "</b>";
+        var tot = 0;
+        ps.forEach(function(p){
+          if (p.seriesName === "Transações"){
+            s += "<br>" + p.marker + " Transações: <b>" + fmtInt(p.value) + "</b>";
+          } else {
+            tot += p.value;
+            s += "<br>" + p.marker + " " + p.seriesName + ": <b>" + fmtBRL(p.value) + "</b>";
+          }
+        });
+        s += "<br>Volume total: <b>" + fmtBRL(tot) + "</b>";
+        return s;
+      }
+    }),
+    xAxis:{ type:"category", data:meses.map(fmtMes), axisLabel:EIXO_TXT, axisLine:{ lineStyle:{ color:"#E3E9E6" } }, axisTick:{ show:false } },
+    yAxis:[
+      { type:"value", name:"Volume (R$)", nameTextStyle:EIXO_TXT,
+        axisLabel:Object.assign({ formatter:fmtCompactBRL }, EIXO_TXT), splitLine:{ lineStyle:{ color:"#EEF2F0" } } },
+      { type:"value", name:"Transações", nameTextStyle:EIXO_TXT,
+        axisLabel:Object.assign({ formatter:function(v){ return fmtInt(v); } }, EIXO_TXT), splitLine:{ show:false } }
+    ],
+    series:series
+  };
+}
+
+/* ---------- 2) Volume por cooperativa (clique filtra) ---------- */
+function optCoop(){
+  // ignora o próprio filtro de cooperativa para permitir comparação + clique
+  var rows = filtraPrincipal(state, true);
+  if (!rows.length) return SEM_DADOS;
+  var mapa = agrupaSoma(rows, function(r){ return r.coop; });
+  var cats = CUBE.meta.coops.filter(function(c){ return mapa.has(c); });
+  var total = 0; mapa.forEach(function(o){ total += o.v; });
+  var dados = cats.map(function(c){
+    var o = mapa.get(c);
+    var selecionada = !state.coop || state.coop === c;
+    return {
+      value: Math.round(o.v * 100) / 100,
+      name: c,
+      qtd: o.q,
+      itemStyle:{ color: selecionada ? COR.credito : "#C9D6CF", borderRadius:[6,6,0,0] }
+    };
+  });
+  return {
+    grid:{ left:64, right:16, top:24, bottom:44 },
+    tooltip: Object.assign({}, TOOLTIP_BASE, {
+      formatter:function(p){
+        var pct = total ? (p.data.value / total * 100) : 0;
+        return "<b>" + p.name + "</b><br>Volume: <b>" + fmtBRL(p.data.value) + "</b> (" +
+               pct.toLocaleString("pt-BR",{maximumFractionDigits:1}) + "%)<br>Transações: <b>" + fmtInt(p.data.qtd) + "</b>" +
+               "<br><i>" + (state.coop === p.name ? "Clique para limpar o filtro" : "Clique para filtrar") + "</i>";
+      }
+    }),
+    xAxis:{ type:"category", data:cats,
+      axisLabel:Object.assign({ interval:0, formatter:function(v){ return v.replace(" - ", "\n"); } }, EIXO_TXT),
+      axisLine:{ lineStyle:{ color:"#E3E9E6" } }, axisTick:{ show:false } },
+    yAxis:{ type:"value", axisLabel:Object.assign({ formatter:fmtCompactBRL }, EIXO_TXT), splitLine:{ lineStyle:{ color:"#EEF2F0" } } },
+    series:[{
+      type:"bar", data:dados, barMaxWidth:70, cursor:"pointer",
+      label:{ show:true, position:"top", formatter:function(p){ return fmtCompactBRL(p.value); }, color:"#5B6B63", fontSize:11 }
+    }]
+  };
+}
+
+/* ---------- 3) Top 10 agências ---------- */
+function optAgencias(){
+  var rows = filtraPrincipal(state, false);
+  if (!rows.length) return SEM_DADOS;
+  var top = topN(agrupaSoma(rows, function(r){ return r.agencia; }), 10).reverse(); // menor -> maior p/ eixo horizontal
+  return {
+    grid:{ left:8, right:70, top:10, bottom:26, containLabel:true },
+    tooltip: Object.assign({}, TOOLTIP_BASE, {
+      formatter:function(p){
+        var o = top[p.dataIndex][1];
+        return "<b>" + p.name + "</b><br>Volume: <b>" + fmtBRL(o.v) + "</b><br>Transações: <b>" + fmtInt(o.q) + "</b>";
+      }
+    }),
+    xAxis:{ type:"value", splitNumber:3, axisLabel:Object.assign({ formatter:fmtCompactBRL }, EIXO_TXT), splitLine:{ lineStyle:{ color:"#EEF2F0" } } },
+    yAxis:{ type:"category", data:top.map(function(t){ return t[0]; }), axisLabel:Object.assign({ fontSize:10.5 }, EIXO_TXT),
+            axisLine:{ lineStyle:{ color:"#E3E9E6" } }, axisTick:{ show:false } },
+    series:[{
+      type:"bar", data:top.map(function(t){ return Math.round(t[1].v * 100) / 100; }),
+      itemStyle:{ color:COR.debito, borderRadius:[0,6,6,0] }, barMaxWidth:20,
+      label:{ show:true, position:"right", formatter:function(p){ return fmtCompactBRL(p.value); }, color:"#5B6B63", fontSize:10.5 }
+    }]
+  };
+}
+
+/* ---------- 4) Volume por faixa de renda (rosca) ---------- */
+function optFaixa(){
+  var rows = filtraPrincipal(state, false);
+  if (!rows.length) return SEM_DADOS;
+  var mapa = agrupaSoma(rows, function(r){ return r.faixa; });
+  var dados = CUBE.meta.faixas.filter(function(fx){ return mapa.has(fx); }).map(function(fx, i){
+    return { name:fx, value:Math.round(mapa.get(fx).v * 100) / 100, qtd:mapa.get(fx).q };
+  });
+  return {
+    color:PALETA,
+    tooltip: Object.assign({}, TOOLTIP_BASE, {
+      formatter:function(p){
+        return "<b>" + p.name + "</b><br>Volume: <b>" + fmtBRL(p.value) + "</b> (" + p.percent.toLocaleString("pt-BR") + "%)" +
+               "<br>Transações: <b>" + fmtInt(p.data.qtd) + "</b>";
+      }
+    }),
+    legend:{ bottom:0, itemWidth:12, itemHeight:12, textStyle:{ fontSize:11.5, color:"#243330" } },
+    series:[{
+      type:"pie", radius:["42%","68%"], center:["50%","44%"],
+      itemStyle:{ borderColor:"#fff", borderWidth:2 },
+      label:{ formatter:function(p){ return p.percent.toLocaleString("pt-BR",{maximumFractionDigits:1}) + "%"; }, fontSize:11.5, color:"#243330" },
+      labelLine:{ length:10, length2:8 },
+      data:dados
+    }]
+  };
+}
+
+/* ---------- 5) Top 10 cidades ---------- */
+function optCidades(){
+  var rows = filtraCidade(state);
+  if (!rows.length) return SEM_DADOS;
+  var top = topN(agrupaSoma(rows, function(r){ return r.cidade; }), 10).reverse();
+  return {
+    grid:{ left:8, right:70, top:10, bottom:26, containLabel:true },
+    tooltip: Object.assign({}, TOOLTIP_BASE, {
+      formatter:function(p){
+        var o = top[p.dataIndex][1];
+        return "<b>" + p.name + "</b><br>Volume: <b>" + fmtBRL(o.v) + "</b><br>Transações: <b>" + fmtInt(o.q) + "</b>";
+      }
+    }),
+    xAxis:{ type:"value", splitNumber:3, axisLabel:Object.assign({ formatter:fmtCompactBRL }, EIXO_TXT), splitLine:{ lineStyle:{ color:"#EEF2F0" } } },
+    yAxis:{ type:"category", data:top.map(function(t){ return t[0]; }), axisLabel:Object.assign({ fontSize:10.5 }, EIXO_TXT),
+            axisLine:{ lineStyle:{ color:"#E3E9E6" } }, axisTick:{ show:false } },
+    series:[{
+      type:"bar", data:top.map(function(t){ return Math.round(t[1].v * 100) / 100; }),
+      itemStyle:{ color:COR.ambar, borderRadius:[0,6,6,0] }, barMaxWidth:20,
+      label:{ show:true, position:"right", formatter:function(p){ return fmtCompactBRL(p.value); }, color:"#5B6B63", fontSize:10.5 }
+    }]
+  };
+}
+
+/* ---------- 6) Mapa de calor dia × hora ---------- */
+function optHeat(){
+  var rows = filtraHoraDow(state);
+  if (!rows.length) return SEM_DADOS;
+  var mapa = agrupaSoma(rows, function(r){ return r.dow + "|" + r.hora; });
+  var dados = [], vmax = 0;
+  mapa.forEach(function(o, k){
+    var p = k.split("|");
+    var v = Math.round(o.v);
+    dados.push([parseInt(p[1],10), parseInt(p[0],10), v]); // [hora, dow, volume]
+    if (v > vmax) vmax = v;
+  });
+  var lookup = mapa;
+  return {
+    grid:{ left:44, right:16, top:12, bottom:92 },
+    tooltip: Object.assign({}, TOOLTIP_BASE, {
+      formatter:function(p){
+        var o = lookup.get(p.value[1] + "|" + p.value[0]);
+        return "<b>" + DIAS[p.value[1]] + " · " + p.value[0] + "h</b><br>Volume: <b>" + fmtBRL(o.v) + "</b><br>Transações: <b>" + fmtInt(o.q) + "</b>";
+      }
+    }),
+    xAxis:{ type:"category", data:Array.from({length:24}, function(_,h){ return h; }),
+      axisLabel:Object.assign({ formatter:function(h){ return h + "h"; }, interval:1 }, EIXO_TXT),
+      splitArea:{ show:true }, axisLine:{ lineStyle:{ color:"#E3E9E6" } }, axisTick:{ show:false } },
+    yAxis:{ type:"category", data:DIAS, inverse:true, axisLabel:EIXO_TXT,
+      splitArea:{ show:true }, axisLine:{ lineStyle:{ color:"#E3E9E6" } }, axisTick:{ show:false } },
+    visualMap:{
+      min:0, max:vmax || 1, calculable:true, orient:"horizontal", left:"center", bottom:0,
+      inRange:{ color:["#EDF5F0", "#8FBFA8", "#2FA26E", "#0E7A4E", "#08573B"] },
+      textStyle:{ color:"#6B7B74", fontSize:10.5 },
+      formatter:function(v){ return fmtCompactBRL(v); }
+    },
+    series:[{
+      type:"heatmap", data:dados,
+      emphasis:{ itemStyle:{ shadowBlur:6, shadowColor:"rgba(0,0,0,.3)" } },
+      itemStyle:{ borderColor:"#fff", borderWidth:1 }
+    }]
+  };
+}
+
+/* ---------- 7) Novos associados por mês ---------- */
+function optNovos(){
+  // respeita apenas o filtro de período; inclui meses anteriores (nov/18) quando o "de" está no início
+  var rows = CUBE.novos_mes.filter(function(r){
+    var deOk = (state.de === MESES[0]) ? true : r.mes >= state.de;
+    return deOk && r.mes <= state.ate;
+  });
+  if (!rows.length) return SEM_DADOS;
+  rows = rows.slice().sort(function(a,b){ return a.mes < b.mes ? -1 : 1; });
+  var labels = rows.map(function(r){ return fmtMes(r.mes); });
+  // área de anotação: meses de captação em queda (a partir de jul/2019)
+  var idxQueda = -1;
+  for (var i = 0; i < rows.length; i++){ if (rows[i].mes >= "2019-07"){ idxQueda = i; break; } }
+  var mark = (idxQueda > -1) ? {
+    silent:true,
+    itemStyle:{ color:"rgba(201,138,0,.10)" },
+    label:{ show:true, position:"insideTop", color:COR.ambar, fontSize:11, fontWeight:600,
+            formatter:"Captação praticamente parou\ndesde meados de 2019" },
+    data:[[{ xAxis:labels[idxQueda] }, { xAxis:labels[labels.length-1] }]]
+  } : undefined;
+  return {
+    grid:{ left:40, right:16, top:26, bottom:30 },
+    tooltip: Object.assign({}, TOOLTIP_BASE, {
+      formatter:function(p){
+        return "<b>" + p.name + "</b><br>Novos associados: <b>" + fmtInt(p.value) + "</b>";
+      }
+    }),
+    xAxis:{ type:"category", data:labels, axisLabel:Object.assign({ rotate:45 }, EIXO_TXT),
+            axisLine:{ lineStyle:{ color:"#E3E9E6" } }, axisTick:{ show:false } },
+    yAxis:{ type:"value", axisLabel:EIXO_TXT, splitLine:{ lineStyle:{ color:"#EEF2F0" } } },
+    series:[{
+      type:"bar", data:rows.map(function(r){ return r.novos; }),
+      itemStyle:{ color:COR.cinza, borderRadius:[5,5,0,0] }, barMaxWidth:26,
+      label:{ show:true, position:"top", color:"#5B6B63", fontSize:10.5 },
+      markArea:mark
+    }]
+  };
+}
+
+/* ============================================================
+   Render
+   ============================================================ */
+function renderKPIs(){
+  var rows = filtraPrincipal(state, false);
+  var t = somaVQ(rows);
+  el("kpi-volume").textContent = fmtBRL(t.v);
+  el("kpi-tx").textContent = fmtInt(t.q);
+  el("kpi-ticket").textContent = t.q > 0 ? fmtBRL(t.v / t.q) : "—";
+  el("kpi-volume-det").textContent = fmtMes(state.de) + " a " + fmtMes(state.ate);
+  el("kpi-tx-det").textContent = state.modalidade ? ("modalidade: " + (state.modalidade === "CREDITO" ? "crédito" : "débito")) : "crédito + débito";
+
+  var pa = picoAtivos(state);
+  el("kpi-ativos").textContent = pa ? fmtInt(pa.ativos) : "—";
+  el("kpi-ativos-det").textContent = pa ? ("pico mensal em " + fmtMes(pa.mes).replace("*","")) : "sem dados no recorte";
+
+  var pc = picoCartoes(state);
+  el("kpi-cartoes").textContent = pc ? fmtInt(pc.cartoes) : "—";
+  el("kpi-cartoes-det").textContent = pc ? ("pico mensal em " + fmtMes(pc.mes).replace("*","")) :
+                                          (state.coop ? "indisponível com filtro de cooperativa" : "sem dados no recorte");
+}
+function renderiza(){
+  sincronizaUI();
+  renderKPIs();
+  charts["ch-evolucao"].setOption(optEvolucao(), true);
+  charts["ch-coop"].setOption(optCoop(), true);
+  charts["ch-agencias"].setOption(optAgencias(), true);
+  charts["ch-faixa"].setOption(optFaixa(), true);
+  charts["ch-cidades"].setOption(optCidades(), true);
+  charts["ch-heat"].setOption(optHeat(), true);
+  charts["ch-novos"].setOption(optNovos(), true);
+}
+
+/* ---------- boot ---------- */
+(function boot(){
+  if (typeof echarts === "undefined"){
+    document.querySelectorAll(".chart").forEach(function(d){
+      d.innerHTML = '<p style="color:#5B6B63;padding:24px">Não foi possível carregar a biblioteca de gráficos (verifique a conexão com o CDN).</p>';
+    });
+    return;
+  }
+  montaFiltros();
+  ["ch-evolucao","ch-coop","ch-agencias","ch-faixa","ch-cidades","ch-heat","ch-novos"].forEach(initChart);
+
+  // clique na barra de cooperativa aplica/remove o filtro
+  charts["ch-coop"].on("click", function(params){
+    state.coop = (state.coop === params.name) ? "" : params.name;
+    state.agencia = "";
+    montaAgencias();
+    renderiza();
+  });
+
+  renderiza();
+  window.addEventListener("resize", function(){
+    Object.keys(charts).forEach(function(k){ charts[k].resize(); });
+  });
+})();
+</script>
+</body>
+</html>
